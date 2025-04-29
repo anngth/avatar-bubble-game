@@ -1,13 +1,12 @@
-# Avatar Bubble Game
+# Avatar Bounce Game
 
-An interactive physics-based game where users can play with avatar bubbles in a split-screen environment, combining realistic physics, gravity mechanics, and scoring elements.
+An interactive physics-based game where users can play with bouncing avatars in a split-screen environment, combining realistic physics, gravity mechanics, and scoring elements.
 
 ## Features
 
 - Split-screen gameplay with different physics in each zone
   - Left Zone: Classic floating bubble interaction
   - Right Zone: Gravity-affected gameplay
-- Five unique character avatars: Tèo, Tí, Trúc, Kỷ An, and Dém
 - Realistic 2D physics with bubble collisions and rotations
 - Interactive drag-and-throw mechanics
 - Moving trash can scoring system with animations

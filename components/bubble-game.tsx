@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button";
 import { usePhysicsEngine } from "@/hooks/use-physics-engine";
 import { useMobile } from "@/hooks/use-mobile";
 import { avatars } from "@/lib/constants";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 
 export default function BubbleGame() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -27,9 +33,7 @@ export default function BubbleGame() {
         setShowConfetti(true);
 
         // Show congratulatory message
-        setCongratsMessage(
-          `Chúc mừng! Bạn đã ném ${avatarName} vào thùng rác!`
-        );
+        setCongratsMessage(`Bạn đã ném ${avatarName} vào thùng rác!`);
 
         // Hide confetti and message after a delay
         setTimeout(() => {
@@ -258,9 +262,10 @@ export default function BubbleGame() {
 
         {/* Congratulatory message */}
         {congratsMessage && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-600 text-white px-8 py-6 rounded-lg shadow-xl text-center z-10 animate-pulse">
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-green-600 text-white px-8 py-6 rounded-lg shadow-xl text-center z-10">
+            <h3 className="text-2xl font-bold">Chúc mừng!</h3>
             <h3 className="text-2xl font-bold">{congratsMessage}</h3>
-            <p className="mt-2 text-lg">+1 điểm!</p>
+            <p className="mt-2 text-xl">+1 điểm!</p>
           </div>
         )}
       </div>

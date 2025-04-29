@@ -8,15 +8,15 @@ export const avatars = [
     src: "/placeholder.svg?height=50&width=50&text=T%C3%AD",
   },
   {
-    name: "Trúc",
+    name: "Chúc",
     src: "/placeholder.svg?height=50&width=50&text=Tr%C3%BAc",
   },
   {
-    name: "Kỷ An",
+    name: "Dũ",
     src: "/placeholder.svg?height=50&width=50&text=K%E1%BB%B7%20An",
   },
   {
     name: "Dém",
     src: "/placeholder.svg?height=50&width=50&text=D%C3%A9m",
   },
-]
+];
