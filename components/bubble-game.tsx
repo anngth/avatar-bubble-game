@@ -1,197 +1,216 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useEffect, useRef, useState } from "react"
-import { Button } from "@/components/ui/button"
-import { usePhysicsEngine } from "@/hooks/use-physics-engine"
-import { useMobile } from "@/hooks/use-mobile"
-import { avatars } from "@/lib/constants"
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { usePhysicsEngine } from "@/hooks/use-physics-engine";
+import { useMobile } from "@/hooks/use-mobile";
+import { avatars } from "@/lib/constants";
 
 export default function BubbleGame() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const isMobile = useMobile()
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
-  const [score, setScore] = useState(0)
-  const [showConfetti, setShowConfetti] = useState(false)
-  const [audioEnabled, setAudioEnabled] = useState(true)
-  const [congratsMessage, setCongratsMessage] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useMobile();
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const [score, setScore] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true);
+  const [congratsMessage, setCongratsMessage] = useState<string | null>(null);
 
-  const { addBubble, startDrag, updateDrag, endDrag, reset } = usePhysicsEngine({
-    canvasRef,
-    dimensions,
-    onScore: (avatarName) => {
-      setScore((prev) => prev + 1)
-      setShowConfetti(true)
+  const { addBubble, startDrag, updateDrag, endDrag, reset } = usePhysicsEngine(
+    {
+      canvasRef,
+      dimensions,
+      onScore: (avatarName) => {
+        setScore((prev) => prev + 1);
+        setShowConfetti(true);
 
-      // Show congratulatory message
-      setCongratsMessage(`Chúc mừng! Bạn đã ném ${avatarName} vào thùng rác!`)
+        // Show congratulatory message
+        setCongratsMessage(
+          `Chúc mừng! Bạn đã ném ${avatarName} vào thùng rác!`
+        );
 
-      // Hide confetti and message after a delay
-      setTimeout(() => {
-        setShowConfetti(false)
-        setCongratsMessage(null)
-      }, 3000)
+        // Hide confetti and message after a delay
+        setTimeout(() => {
+          setShowConfetti(false);
+          setCongratsMessage(null);
+        }, 3000);
 
-      // Play sound effect using Web Audio API
-      if (audioEnabled) {
-        playPlopSound()
-      }
-    },
-  })
+        // Play sound effect using Web Audio API
+        if (audioEnabled) {
+          playPlopSound();
+        }
+      },
+    }
+  );
 
   // Use Web Audio API instead of HTML Audio element
-  const audioContextRef = useRef<AudioContext | null>(null)
-  const plopSoundBufferRef = useRef<AudioBuffer | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const plopSoundBufferRef = useRef<AudioBuffer | null>(null);
 
   // Function to play the plop sound
   const playPlopSound = () => {
-    if (!audioContextRef.current || !plopSoundBufferRef.current) return
+    if (!audioContextRef.current || !plopSoundBufferRef.current) return;
 
     try {
-      const source = audioContextRef.current.createBufferSource()
-      source.buffer = plopSoundBufferRef.current
-      source.connect(audioContextRef.current.destination)
-      source.start(0)
+      const source = audioContextRef.current.createBufferSource();
+      source.buffer = plopSoundBufferRef.current;
+      source.connect(audioContextRef.current.destination);
+      source.start(0);
     } catch (error) {
-      console.error("Failed to play sound:", error)
+      console.error("Failed to play sound:", error);
     }
-  }
+  };
 
   useEffect(() => {
     // Initialize Web Audio API
     try {
       // Create audio context
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext
+      const AudioContext =
+        window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContext) {
-        audioContextRef.current = new AudioContext()
+        audioContextRef.current = new AudioContext();
 
         // Create a simple "plop" sound programmatically
         const createPlopSound = async () => {
           try {
-            const ctx = audioContextRef.current
-            if (!ctx) return
+            const ctx = audioContextRef.current;
+            if (!ctx) return;
 
             // Create a short buffer for our sound (0.3 seconds)
-            const sampleRate = ctx.sampleRate
-            const duration = 0.3
-            const bufferSize = sampleRate * duration
-            const buffer = ctx.createBuffer(1, bufferSize, sampleRate)
-            const data = buffer.getChannelData(0)
+            const sampleRate = ctx.sampleRate;
+            const duration = 0.3;
+            const bufferSize = sampleRate * duration;
+            const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
+            const data = buffer.getChannelData(0);
 
             // Generate a simple "plop" sound
             for (let i = 0; i < bufferSize; i++) {
               // Exponential decay
-              const t = i / sampleRate
-              const amplitude = Math.exp(-10 * t)
+              const t = i / sampleRate;
+              const amplitude = Math.exp(-10 * t);
 
               // Frequency modulation for the "plop" effect
-              const frequency = 150 + 200 * Math.exp(-15 * t)
-              data[i] = amplitude * Math.sin(2 * Math.PI * frequency * t)
+              const frequency = 150 + 200 * Math.exp(-15 * t);
+              data[i] = amplitude * Math.sin(2 * Math.PI * frequency * t);
             }
 
-            plopSoundBufferRef.current = buffer
+            plopSoundBufferRef.current = buffer;
           } catch (error) {
-            console.error("Failed to create plop sound:", error)
-            setAudioEnabled(false)
+            console.error("Failed to create plop sound:", error);
+            setAudioEnabled(false);
           }
-        }
+        };
 
-        createPlopSound()
+        createPlopSound();
       } else {
-        console.warn("Web Audio API not supported")
-        setAudioEnabled(false)
+        console.warn("Web Audio API not supported");
+        setAudioEnabled(false);
       }
     } catch (error) {
-      console.error("Error initializing audio:", error)
-      setAudioEnabled(false)
+      console.error("Error initializing audio:", error);
+      setAudioEnabled(false);
     }
 
     // Handle resize
     const updateDimensions = () => {
       if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect()
-        setDimensions({ width, height })
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        setDimensions({ width, height });
       }
-    }
+    };
 
-    updateDimensions()
-    window.addEventListener("resize", updateDimensions)
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
 
     return () => {
-      window.removeEventListener("resize", updateDimensions)
+      window.removeEventListener("resize", updateDimensions);
       // Clean up audio context
-      if (audioContextRef.current && audioContextRef.current.state !== "closed") {
-        audioContextRef.current.close().catch(console.error)
+      if (
+        audioContextRef.current &&
+        audioContextRef.current.state !== "closed"
+      ) {
+        audioContextRef.current.close().catch(console.error);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current?.getBoundingClientRect()
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (rect) {
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      startDrag(x, y)
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      startDrag(x, y);
     }
-  }
+  };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current?.getBoundingClientRect()
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (rect) {
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      updateDrag(x, y)
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      updateDrag(x, y);
     }
-  }
+  };
 
   const handleMouseUp = () => {
-    endDrag()
-  }
+    endDrag();
+  };
 
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault()
-    const rect = canvasRef.current?.getBoundingClientRect()
+    e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (rect && e.touches[0]) {
-      const x = e.touches[0].clientX - rect.left
-      const y = e.touches[0].clientY - rect.top
-      startDrag(x, y)
+      const x = e.touches[0].clientX - rect.left;
+      const y = e.touches[0].clientY - rect.top;
+      startDrag(x, y);
     }
-  }
+  };
 
   const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault()
-    const rect = canvasRef.current?.getBoundingClientRect()
+    e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
     if (rect && e.touches[0]) {
-      const x = e.touches[0].clientX - rect.left
-      const y = e.touches[0].clientY - rect.top
-      updateDrag(x, y)
+      const x = e.touches[0].clientX - rect.left;
+      const y = e.touches[0].clientY - rect.top;
+      updateDrag(x, y);
     }
-  }
+  };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault()
-    endDrag()
-  }
+    e.preventDefault();
+    endDrag();
+  };
 
   // Toggle audio
   const toggleAudio = () => {
-    setAudioEnabled((prev) => !prev)
+    setAudioEnabled((prev) => !prev);
 
     // Resume audio context if it was suspended (needed for some browsers)
-    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
-      audioContextRef.current.resume().catch(console.error)
+    if (
+      audioContextRef.current &&
+      audioContextRef.current.state === "suspended"
+    ) {
+      audioContextRef.current.resume().catch(console.error);
     }
-  }
+  };
 
   return (
     <div className="flex flex-col items-center w-full max-w-4xl">
       <div className="flex flex-wrap justify-center gap-2 mb-4">
         {avatars.map((avatar) => (
-          <Button key={avatar.name} onClick={() => addBubble(avatar.name)} className="flex items-center gap-2">
+          <Button
+            key={avatar.name}
+            onClick={() => addBubble(avatar.name)}
+            className="flex items-center gap-2"
+          >
             <div className="w-6 h-6 rounded-full overflow-hidden">
-              <img src={avatar.src || "/placeholder.svg"} alt={avatar.name} className="w-full h-full object-cover" />
+              <img
+                src={avatar.src || "/placeholder.svg"}
+                alt={avatar.name}
+                className="w-full h-full object-cover"
+              />
             </div>
             <span>{avatar.name}</span>
           </Button>
@@ -248,14 +267,20 @@ export default function BubbleGame() {
 
       <div className="mt-4 text-sm text-gray-600 text-center">
         <p>
-          Drag and throw the avatar bubbles from the left side. Try to get them into the open trash can on the right
-          side!
+          Drag and throw the avatar bubbles from the left side. Try to get them
+          into the open trash can on the right side!
         </p>
-        <p>The left side has no gravity and is interactive, while the right side has gravity and is view-only.</p>
-        <p>Bubbles will automatically fall into the trash can when positioned above the opening!</p>
+        <p>
+          The left side has no gravity and is interactive, while the right side
+          has gravity and is view-only.
+        </p>
+        <p>
+          Bubbles will automatically fall into the trash can when positioned
+          above the opening!
+        </p>
       </div>
     </div>
-  )
+  );
 }
 
 function Confetti() {
@@ -278,5 +303,5 @@ function Confetti() {
         ))}
       </div>
     </div>
-  )
+  );
 }
