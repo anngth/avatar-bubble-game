@@ -1,5 +1,11 @@
 # Avatar Bounce Game
 
+[![Release and Deploy](https://github.com/nguyenthanhan/avatar-bubble-game/workflows/Release%20and%20Deploy/badge.svg)](https://github.com/nguyenthanhan/avatar-bubble-game/actions/workflows/release-and-deploy.yml)
+[![Deploy on Vercel](https://img.shields.io/badge/Deploy%20on-Vercel-black)](https://vercel.com/heimers-projects/v0-avatar-bubble-game)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-000000?logo=next.js&logoColor=white)](https://nextjs.org/)
+
 An interactive physics-based game where users can play with avatar bubbles in a split-screen environment, combining realistic physics, gravity mechanics, and scoring elements. Built with modern web technologies for optimal performance and user experience.
 
 ## 🎮 Features
@@ -21,6 +27,7 @@ An interactive physics-based game where users can play with avatar bubbles in a 
 - **Responsive Design**: Adaptive canvas sizing for desktop and mobile devices
 - **Theme Support**: Dark/light mode with system preference detection
 - **Performance Optimized**: 60 FPS target with optimized rendering pipeline
+- **GitHub Integration**: Small, unobtrusive GitHub button in top-right corner for easy repository access
 
 ## 🛠️ Technical Stack
 
@@ -145,6 +152,7 @@ This project is private and proprietary. All rights reserved.
 
 ## 🔗 Links
 
+- [GitHub Repository](https://github.com/nguyenthanhan/avatar-bubble-game) - Source code and project files
 - [Changelog](./CHANGELOG.md) - Project history and updates
 - [Next.js Documentation](https://nextjs.org/docs)
 - [React Documentation](https://react.dev)

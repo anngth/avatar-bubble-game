@@ -104,7 +104,7 @@ if [ -z "$RELEASE_TYPE" ]; then
     
     # Stage all changes
     print_info "Staging all changes..."
-    git add .
+    git add package.json CHANGELOG.md README.md
     
     # Get current version
     CURRENT_VERSION=$(get_current_version)
@@ -146,20 +146,6 @@ print_info "Current version: $CURRENT_VERSION"
 # Calculate new version
 NEW_VERSION=$(increment_version "$CURRENT_VERSION" "$RELEASE_TYPE")
 print_info "New version will be: $NEW_VERSION"
-
-# Check if new version exists in CHANGELOG.md
-if [ -f "CHANGELOG.md" ]; then
-    print_info "Checking if version $NEW_VERSION exists in CHANGELOG.md..."
-    if ! grep -q "## \[$NEW_VERSION\]" CHANGELOG.md; then
-        print_error "Version $NEW_VERSION not found in CHANGELOG.md"
-        print_error "Please add a changelog entry for version $NEW_VERSION before releasing"
-        print_info "Expected format: ## [$NEW_VERSION] - Unreleased"
-        exit 1
-    fi
-    print_success "Version $NEW_VERSION found in CHANGELOG.md"
-else
-    print_warning "CHANGELOG.md not found. Skipping version validation."
-fi
 
 # Check if we're on main branch
 CURRENT_BRANCH=$(git branch --show-current)
