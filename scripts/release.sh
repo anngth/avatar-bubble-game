@@ -111,7 +111,7 @@ if [ -z "$RELEASE_TYPE" ]; then
     
     # Create commit
     print_info "Creating commit..."
-    COMMIT_MESSAGE="build: update version to $CURRENT_VERSION
+    COMMIT_MESSAGE="build: release v$CURRENT_VERSION
 
 - Update package.json version
 - Update CHANGELOG.md with new version entry
@@ -119,15 +119,23 @@ if [ -z "$RELEASE_TYPE" ]; then
 
     git commit -m "$COMMIT_MESSAGE"
     
-    # Push changes
+    # Create annotated tag for current version
+    print_info "Creating git tag v$CURRENT_VERSION..."
+    git tag -a "v$CURRENT_VERSION" -m "Release v$CURRENT_VERSION
+
+Push-only release - no version bump"
+    
+    # Push changes and tags
     print_info "Pushing changes to origin..."
     git push origin $CURRENT_BRANCH
+    git push origin "v$CURRENT_VERSION"
     
     print_success "Push completed successfully! 🎉"
     print_info "Push summary:"
     echo "  - All changes committed and pushed"
     echo "  - Current version: $CURRENT_VERSION"
     echo "  - Branch: $CURRENT_BRANCH"
+    echo "  - Tag v$CURRENT_VERSION created and pushed"
     exit 0
 fi
 
