@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Memory Management**: Improved garbage collection and memory usage in physics engine
 - **Cross-browser Support**: Enhanced compatibility across different browsers and devices
 
-## [1.0.2] - 2025-01-27
+## [1.0.2] - 2025-08-02
 
 ### Added
 
