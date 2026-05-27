@@ -142,27 +142,78 @@ export function usePhysicsEngine({
 
       // Draw divider
       const dividerX = dimensions.width * DIVIDER_X_RATIO;
-      ctx.beginPath();
-      ctx.moveTo(dividerX, 0);
-      ctx.lineTo(dividerX, dimensions.height);
-      ctx.strokeStyle = "#888";
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      // Divider: top 1/4 = passable (thin dashed line), bottom 3/4 = solid (thick wall)
+      const dividerSolidY = dimensions.height / 4; // solid part starts at 1/4 from top
 
-      // Draw divider solid part (bottom half)
-      ctx.beginPath();
-      ctx.rect(dividerX - 5, dimensions.height / 2, 10, dimensions.height / 2);
+      // --- Solid wall (bottom 3/4) ---
+      // Background fill with subtle red tint
+      ctx.fillStyle = "rgba(180, 60, 60, 0.15)";
+      ctx.fillRect(
+        dividerX - 8,
+        dividerSolidY,
+        16,
+        dimensions.height - dividerSolidY,
+      );
+      // Main wall body
       ctx.fillStyle = "#666";
-      ctx.fill();
+      ctx.fillRect(
+        dividerX - 6,
+        dividerSolidY,
+        12,
+        dimensions.height - dividerSolidY,
+      );
+      // Left highlight
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      ctx.fillRect(
+        dividerX - 6,
+        dividerSolidY,
+        3,
+        dimensions.height - dividerSolidY,
+      );
+      // Right shadow
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(
+        dividerX + 3,
+        dividerSolidY,
+        3,
+        dimensions.height - dividerSolidY,
+      );
+      // Outline
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(
+        dividerX - 6,
+        dividerSolidY,
+        12,
+        dimensions.height - dividerSolidY,
+      );
+      // Top cap of wall (junction line)
+      ctx.fillStyle = "#888";
+      ctx.fillRect(dividerX - 8, dividerSolidY - 3, 16, 3);
 
-      // Draw divider passable part (top half)
+      // --- Passable gap (top 1/4) ---
+      // Subtle green tint background to hint "passable"
+      ctx.fillStyle = "rgba(80, 200, 120, 0.08)";
+      ctx.fillRect(dividerX - 8, 0, 16, dividerSolidY);
+      // Thin dashed center line
       ctx.beginPath();
-      ctx.setLineDash([5, 5]);
+      ctx.setLineDash([5, 7]);
       ctx.moveTo(dividerX, 0);
-      ctx.lineTo(dividerX, dimensions.height / 2);
-      ctx.strokeStyle = "#888";
+      ctx.lineTo(dividerX, dividerSolidY - 3);
+      ctx.strokeStyle = "rgba(120, 220, 150, 0.7)";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
       ctx.setLineDash([]);
+      // Arrow pointing right at the middle of the gap to hint "throw here"
+      const arrowY = dividerSolidY / 2;
+      ctx.beginPath();
+      ctx.moveTo(dividerX - 5, arrowY - 5);
+      ctx.lineTo(dividerX + 5, arrowY);
+      ctx.lineTo(dividerX - 5, arrowY + 5);
+      ctx.strokeStyle = "rgba(120, 220, 150, 0.8)";
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = "round";
+      ctx.stroke();
 
       // Update trash can position
       const trashCan = trashCanRef.current;
@@ -197,7 +248,7 @@ export function usePhysicsEngine({
         trashCan.x - trashCan.width / 2,
         trashCanY,
         trashCan.width,
-        trashCan.height
+        trashCan.height,
       );
 
       // Update and draw bubbles
@@ -245,15 +296,19 @@ export function usePhysicsEngine({
             continue;
           }
         } else {
-          // Apply gravity in right zone
+          // Apply gravity — full gravity in right zone, none in left zone
+          // Use a smooth transition within 30px of the divider to avoid sudden acceleration
           if (bubble.x > dividerX) {
             bubble.vy += GRAVITY;
+          } else if (bubble.x > dividerX - 30) {
+            const t = (bubble.x - (dividerX - 30)) / 30; // 0 → 1 as bubble approaches divider
+            bubble.vy += GRAVITY * t;
           }
 
           // Check if bubble is stationary in the right zone
           if (bubble.x > dividerX && !bubble.fallingIntoTrash) {
             const speed = Math.sqrt(
-              bubble.vx * bubble.vx + bubble.vy * bubble.vy
+              bubble.vx * bubble.vx + bubble.vy * bubble.vy,
             );
 
             // If bubble is on the ground and nearly stationary
@@ -296,7 +351,7 @@ export function usePhysicsEngine({
 
           // Cap velocities
           const speed = Math.sqrt(
-            bubble.vx * bubble.vx + bubble.vy * bubble.vy
+            bubble.vx * bubble.vx + bubble.vy * bubble.vy,
           );
           if (speed > MAX_VELOCITY) {
             const ratio = MAX_VELOCITY / speed;
@@ -321,8 +376,8 @@ export function usePhysicsEngine({
             (bubble.x + bubble.radius > dividerX &&
               bubble.x - bubble.radius < dividerX)
           ) {
-            // Check if in bottom half (solid part)
-            if (bubble.y > dimensions.height / 2) {
+            // Bottom 3/4 = solid wall
+            if (bubble.y > dimensions.height / 4) {
               // Solid collision with divider
               if (bubble.x < dividerX) {
                 bubble.x = dividerX - bubble.radius;
@@ -334,7 +389,7 @@ export function usePhysicsEngine({
                 bubble.angularVelocity -= bubble.vy * 0.01;
               }
             }
-            // Top half (passable with sufficient velocity)
+            // Top 1/4 = passable with sufficient velocity
             else {
               const horizontalSpeed = Math.abs(bubble.vx);
               if (horizontalSpeed < DIVIDER_PASSABLE_THRESHOLD) {
@@ -353,15 +408,29 @@ export function usePhysicsEngine({
             }
           }
 
-          // Check for collision with walls
-          if (bubble.x - bubble.radius < 0) {
-            bubble.x = bubble.radius;
-            bubble.vx = Math.abs(bubble.vx) * 0.8;
-            bubble.angularVelocity -= bubble.vy * 0.01;
-          } else if (bubble.x + bubble.radius > dimensions.width) {
-            bubble.x = dimensions.width - bubble.radius;
-            bubble.vx = -Math.abs(bubble.vx) * 0.8;
-            bubble.angularVelocity += bubble.vy * 0.01;
+          // Check for collision with walls — right zone bubbles are bounded by dividerX on left
+          if (bubble.x > dividerX) {
+            // Left boundary for right-zone bubbles is the divider
+            if (bubble.x - bubble.radius < dividerX) {
+              bubble.x = dividerX + bubble.radius;
+              bubble.vx = Math.abs(bubble.vx) * 0.8;
+              bubble.angularVelocity -= bubble.vy * 0.01;
+            } else if (bubble.x + bubble.radius > dimensions.width) {
+              bubble.x = dimensions.width - bubble.radius;
+              bubble.vx = -Math.abs(bubble.vx) * 0.8;
+              bubble.angularVelocity += bubble.vy * 0.01;
+            }
+          } else {
+            // Left zone: bounded by left wall and divider
+            if (bubble.x - bubble.radius < 0) {
+              bubble.x = bubble.radius;
+              bubble.vx = Math.abs(bubble.vx) * 0.8;
+              bubble.angularVelocity -= bubble.vy * 0.01;
+            } else if (bubble.x + bubble.radius > dimensions.width) {
+              bubble.x = dimensions.width - bubble.radius;
+              bubble.vx = -Math.abs(bubble.vx) * 0.8;
+              bubble.angularVelocity += bubble.vy * 0.01;
+            }
           }
 
           if (bubble.y - bubble.radius < 0) {
@@ -410,17 +479,36 @@ export function usePhysicsEngine({
               bubble.x > leftEdge - bubble.radius &&
               bubble.x < rightEdge + bubble.radius
             ) {
-              // Determine which side of the trash can was hit
               if (bubble.x < trashCan.x) {
-                // Left collision - calculate exact collision point on the tapered side
-                bubble.x = leftEdge - bubble.radius;
-                bubble.vx = -Math.abs(bubble.vx) * 0.8;
-                bubble.angularVelocity += bubble.vy * 0.01;
+                // Left side of trash can — push bubble left
+                const newX = leftEdge - bubble.radius;
+
+                // If pushing bubble would cross the divider, no room left → disappear
+                if (newX < dividerX + bubble.radius) {
+                  if (!bubble.disappearing) {
+                    bubble.disappearing = true;
+                    bubble.disappearProgress = 0;
+                  }
+                } else {
+                  bubble.x = newX;
+                  bubble.vx = -Math.abs(bubble.vx) * 0.8;
+                  bubble.angularVelocity += bubble.vy * 0.01;
+                }
               } else {
-                // Right collision - calculate exact collision point on the tapered side
-                bubble.x = rightEdge + bubble.radius;
-                bubble.vx = Math.abs(bubble.vx) * 0.8;
-                bubble.angularVelocity -= bubble.vy * 0.01;
+                // Right side of trash can — push bubble right
+                const newX = rightEdge + bubble.radius;
+
+                // If pushing bubble would go past the right wall, no room left → disappear
+                if (newX > dimensions.width - bubble.radius) {
+                  if (!bubble.disappearing) {
+                    bubble.disappearing = true;
+                    bubble.disappearProgress = 0;
+                  }
+                } else {
+                  bubble.x = newX;
+                  bubble.vx = Math.abs(bubble.vx) * 0.8;
+                  bubble.angularVelocity -= bubble.vy * 0.01;
+                }
               }
             }
           }
@@ -430,81 +518,76 @@ export function usePhysicsEngine({
       // Check for collisions between bubbles
       for (let i = 0; i < updatedBubbles.length; i++) {
         const bubbleA = updatedBubbles[i];
-
-        // Skip collision checks for bubbles falling into trash
         if (bubbleA.fallingIntoTrash) continue;
+
+        const aIsDragged = draggedBubbleRef.current === bubbleA.id;
 
         for (let j = i + 1; j < updatedBubbles.length; j++) {
           const bubbleB = updatedBubbles[j];
-
-          // Skip collision checks for bubbles falling into trash
           if (bubbleB.fallingIntoTrash) continue;
 
-          // Skip if either bubble is being dragged
-          if (
-            draggedBubbleRef.current === bubbleA.id ||
-            draggedBubbleRef.current === bubbleB.id
-          )
-            continue;
+          const bIsDragged = draggedBubbleRef.current === bubbleB.id;
 
           const dx = bubbleB.x - bubbleA.x;
           const dy = bubbleB.y - bubbleA.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           const minDistance = bubbleA.radius + bubbleB.radius;
 
-          if (distance < minDistance) {
-            // Collision detected
+          if (distance < minDistance && distance > 0) {
             const angle = Math.atan2(dy, dx);
-            const targetX = bubbleA.x + Math.cos(angle) * minDistance;
-            const targetY = bubbleA.y + Math.sin(angle) * minDistance;
+            const overlap = minDistance - distance;
 
-            // Move bubbles apart to prevent overlapping
-            const ax = (targetX - bubbleB.x) * 0.05;
-            const ay = (targetY - bubbleB.y) * 0.05;
+            if (aIsDragged && !bIsDragged) {
+              // A is dragged: only push B away, A stays put
+              bubbleB.x += Math.cos(angle) * overlap;
+              bubbleB.y += Math.sin(angle) * overlap;
+              // Give B a velocity from the push
+              bubbleB.vx += Math.cos(angle) * overlap * 0.3;
+              bubbleB.vy += Math.sin(angle) * overlap * 0.3;
+            } else if (bIsDragged && !aIsDragged) {
+              // B is dragged: only push A away, B stays put
+              bubbleA.x -= Math.cos(angle) * overlap;
+              bubbleA.y -= Math.sin(angle) * overlap;
+              bubbleA.vx -= Math.cos(angle) * overlap * 0.3;
+              bubbleA.vy -= Math.sin(angle) * overlap * 0.3;
+            } else if (!aIsDragged && !bIsDragged) {
+              // Neither dragged: normal elastic collision
+              const targetX = bubbleA.x + Math.cos(angle) * minDistance;
+              const targetY = bubbleA.y + Math.sin(angle) * minDistance;
 
-            bubbleA.x -= ax;
-            bubbleA.y -= ay;
-            bubbleB.x += ax;
-            bubbleB.y += ay;
+              const ax = (targetX - bubbleB.x) * 0.05;
+              const ay = (targetY - bubbleB.y) * 0.05;
+              bubbleA.x -= ax;
+              bubbleA.y -= ay;
+              bubbleB.x += ax;
+              bubbleB.y += ay;
 
-            // Calculate new velocities (elastic collision)
-            const v1 = Math.sqrt(
-              bubbleA.vx * bubbleA.vx + bubbleA.vy * bubbleA.vy
-            );
-            const v2 = Math.sqrt(
-              bubbleB.vx * bubbleB.vx + bubbleB.vy * bubbleB.vy
-            );
+              const v1 = Math.sqrt(
+                bubbleA.vx * bubbleA.vx + bubbleA.vy * bubbleA.vy,
+              );
+              const v2 = Math.sqrt(
+                bubbleB.vx * bubbleB.vx + bubbleB.vy * bubbleB.vy,
+              );
+              const dir1 = Math.atan2(bubbleA.vy, bubbleA.vx);
+              const dir2 = Math.atan2(bubbleB.vy, bubbleB.vx);
 
-            const dir1 = Math.atan2(bubbleA.vy, bubbleA.vx);
-            const dir2 = Math.atan2(bubbleB.vy, bubbleB.vx);
+              const vx1 = v1 * Math.cos(dir1 - angle);
+              const vy1 = v1 * Math.sin(dir1 - angle);
+              const vx2 = v2 * Math.cos(dir2 - angle);
+              const vy2 = v2 * Math.sin(dir2 - angle);
 
-            const vx1 = v1 * Math.cos(dir1 - angle);
-            const vy1 = v1 * Math.sin(dir1 - angle);
-            const vx2 = v2 * Math.cos(dir2 - angle);
-            const vy2 = v2 * Math.sin(dir2 - angle);
+              bubbleA.vx = Math.cos(angle) * vx2 - Math.sin(angle) * vy1;
+              bubbleA.vy = Math.sin(angle) * vx2 + Math.cos(angle) * vy1;
+              bubbleB.vx = Math.cos(angle) * vx1 - Math.sin(angle) * vy2;
+              bubbleB.vy = Math.sin(angle) * vx1 + Math.cos(angle) * vy2;
 
-            // Final velocities after collision
-            const finalVx1 = vx2;
-            const finalVy1 = vy1;
-            const finalVx2 = vx1;
-            const finalVy2 = vy2;
-
-            // Convert back to original coordinate system
-            bubbleA.vx =
-              Math.cos(angle) * finalVx1 - Math.sin(angle) * finalVy1;
-            bubbleA.vy =
-              Math.sin(angle) * finalVx1 + Math.cos(angle) * finalVy1;
-            bubbleB.vx =
-              Math.cos(angle) * finalVx2 - Math.sin(angle) * finalVy2;
-            bubbleB.vy =
-              Math.sin(angle) * finalVx2 + Math.cos(angle) * finalVy2;
-
-            // Add angular velocity based on impact
-            const impactForce = Math.abs(vx1 - vx2) + Math.abs(vy1 - vy2);
-            bubbleA.angularVelocity +=
-              (Math.random() * 2 - 1) * impactForce * 0.01;
-            bubbleB.angularVelocity +=
-              (Math.random() * 2 - 1) * impactForce * 0.01;
+              const impactForce = Math.abs(vx1 - vx2) + Math.abs(vy1 - vy2);
+              bubbleA.angularVelocity +=
+                (Math.random() * 2 - 1) * impactForce * 0.01;
+              bubbleB.angularVelocity +=
+                (Math.random() * 2 - 1) * impactForce * 0.01;
+            }
+            // Both dragged: skip (shouldn't happen, only one drag at a time)
           }
         }
       }
@@ -549,7 +632,7 @@ export function usePhysicsEngine({
               -bubble.radius,
               -bubble.radius,
               bubble.radius * 2,
-              bubble.radius * 2
+              bubble.radius * 2,
             );
           } catch (error) {
             console.error("Error drawing image:", error);
@@ -568,7 +651,7 @@ export function usePhysicsEngine({
               -bubble.radius,
               -bubble.radius,
               bubble.radius * 2,
-              bubble.radius * 2
+              bubble.radius * 2,
             );
           } catch (error) {
             console.error("Error drawing default image:", error);
@@ -618,7 +701,7 @@ export function usePhysicsEngine({
     x: number,
     y: number,
     width: number,
-    height: number
+    height: number,
   ) => {
     const topWidth = width;
     const bottomWidth = width * 0.7; // Bottom is 70% of top width
@@ -696,7 +779,7 @@ export function usePhysicsEngine({
         bubble.x > topLeft.x &&
         bubble.x < topRight.x &&
         bubble.y + bubble.radius < topLeft.y &&
-        bubble.y + bubble.radius > topLeft.y - 50
+        bubble.y + bubble.radius > topLeft.y - 50,
     );
 
     if (anyBubblesAbove) {
@@ -713,11 +796,11 @@ export function usePhysicsEngine({
 
   const getColorForAvatar = (name: string): string => {
     const colors: Record<string, string> = {
-      "Tèo": "#FF5733",
-      "Tí": "#33FF57",
-      "Chúc": "#3357FF",
-      "Dũ": "#F033FF",
-      "Dém": "#FF9933",
+      Tèo: "#FF5733",
+      Tí: "#33FF57",
+      Chúc: "#3357FF",
+      Dũ: "#F033FF",
+      Dém: "#FF9933",
     };
     return colors[name] || "#CCCCCC";
   };
@@ -774,42 +857,63 @@ export function usePhysicsEngine({
 
     // Find the dragged bubble
     const bubbleIndex = bubblesRef.current.findIndex(
-      (b) => b.id === draggedBubbleRef.current
+      (b) => b.id === draggedBubbleRef.current,
     );
     if (bubbleIndex === -1) return;
 
     const bubble = bubblesRef.current[bubbleIndex];
+    const dividerX = dimensions.width * DIVIDER_X_RATIO;
 
-    // Calculate new position
-    let newX = x;
-    let newY = y;
-
-    // Keep bubble within bounds
-    newX = Math.max(
-      bubble.radius,
-      Math.min(dimensions.width - bubble.radius, newX)
-    );
-    newY = Math.max(
-      bubble.radius,
-      Math.min(dimensions.height - bubble.radius, newY)
-    );
-
-    // Update bubble position
-    bubble.x = newX;
-    bubble.y = newY;
-
-    // Track velocity for throw
+    // Track velocity for throw (always, before any early return)
     const vx = x - lastMousePosRef.current.x;
     const vy = y - lastMousePosRef.current.y;
-
     velocityHistoryRef.current.push({ x: vx, y: vy });
     if (velocityHistoryRef.current.length > 5) {
       velocityHistoryRef.current.shift();
     }
-
     lastMousePosRef.current = { x, y };
 
-    // Update bubble reference
+    // When mouse reaches the divider, release the bubble so physics takes over
+    if (x >= dividerX - bubble.radius) {
+      // Apply throw velocity from history
+      let avgVx = 0;
+      let avgVy = 0;
+      for (const v of velocityHistoryRef.current) {
+        avgVx += v.x;
+        avgVy += v.y;
+      }
+      avgVx /= velocityHistoryRef.current.length;
+      avgVy /= velocityHistoryRef.current.length;
+
+      const multiplier = 1.5;
+      bubble.vx = avgVx * multiplier;
+      bubble.vy = avgVy * multiplier;
+      bubble.angularVelocity = (avgVx - avgVy) * 0.01;
+
+      // Position bubble just at the divider edge
+      bubble.x = dividerX - bubble.radius;
+      bubble.y = Math.max(
+        bubble.radius,
+        Math.min(dimensions.height - bubble.radius, y),
+      );
+
+      bubblesRef.current[bubbleIndex] = bubble;
+
+      // End the drag — physics engine handles the rest (pass through or bounce)
+      draggedBubbleRef.current = null;
+      dragStartPosRef.current = null;
+      lastMousePosRef.current = null;
+      velocityHistoryRef.current = [];
+      return;
+    }
+
+    // Normal drag: keep bubble within left zone bounds
+    bubble.x = Math.max(bubble.radius, Math.min(dividerX - bubble.radius, x));
+    bubble.y = Math.max(
+      bubble.radius,
+      Math.min(dimensions.height - bubble.radius, y),
+    );
+
     bubblesRef.current[bubbleIndex] = bubble;
   };
 
@@ -819,7 +923,7 @@ export function usePhysicsEngine({
 
     // Find the dragged bubble
     const bubbleIndex = bubblesRef.current.findIndex(
-      (b) => b.id === draggedBubbleRef.current
+      (b) => b.id === draggedBubbleRef.current,
     );
     if (bubbleIndex === -1) {
       draggedBubbleRef.current = null;
