@@ -75,51 +75,6 @@ export function usePhysicsEngine({
   // We'll draw the trash can directly instead of loading an image
   const trashCanImageRef = useRef<HTMLImageElement | null>(null);
 
-  // ── Slingshot ──────────────────────────────────────────────────────────────
-  // Anchors are placed in the left zone, far enough from the divider so a
-  // bubble (radius 25) can pass between anchor and divider comfortably.
-  // Positions are expressed as ratios so they scale with canvas size.
-  const SLING_ANCHOR_X_RATIO = 0.08; // upper anchor X: 8% from left
-  const SLING_ANCHOR_A_Y_RATIO = 0.2; // upper anchor at 20% height
-  const SLING_ANCHOR_B_X_RATIO = 0.38; // lower anchor X: 38% from left
-  const SLING_ANCHOR_B_Y_RATIO = 0.8; // lower anchor at 80% height
-  const SLING_MAX_STRETCH = 100; // px — max pull distance
-  const SLING_MIN_STRETCH = 10; // px — minimum to trigger launch
-  const SLING_POWER = 0.55; // velocity multiplier per px of stretch
-
-  // Runtime slingshot state (not React state — lives in refs for animation loop)
-  const slingshotRef = useRef<{
-    anchorA: { x: number; y: number };
-    anchorB: { x: number; y: number };
-    activeBubbleId: number | null;
-    pullPoint: { x: number; y: number } | null;
-    // Band deformation when a free-flying bubble hits the band
-    deform: {
-      active: boolean;
-      contactY: number; // Y position along the band where bubble hit
-      depth: number; // current deformation depth (px, grows then shrinks)
-      maxDepth: number; // peak depth reached
-      phase: "pressing" | "rebounding" | "idle";
-      bubbleId: number | null;
-    };
-  }>({
-    anchorA: { x: 0, y: 0 },
-    anchorB: { x: 0, y: 0 },
-    activeBubbleId: null,
-    pullPoint: null,
-    deform: {
-      active: false,
-      contactY: 0,
-      depth: 0,
-      maxDepth: 0,
-      phase: "idle",
-      bubbleId: null,
-    },
-  });
-  // Which anchor peg is being repositioned by the user: null | 'A' | 'B'
-  const draggingAnchorRef = useRef<"A" | "B" | null>(null);
-  // ──────────────────────────────────────────────────────────────────────────
-
   const BUBBLE_RADIUS = 25; // 50px diameter
   const DIVIDER_X_RATIO = 0.5; // Position at 50% of the canvas width
   const GRAVITY = 0.2;
@@ -175,16 +130,6 @@ export function usePhysicsEngine({
       ...trashCanRef.current,
       x: dimensions.width * 0.75,
       y: dimensions.height,
-    };
-
-    // Update slingshot anchor positions based on canvas size
-    slingshotRef.current.anchorA = {
-      x: dimensions.width * SLING_ANCHOR_X_RATIO,
-      y: dimensions.height * SLING_ANCHOR_A_Y_RATIO,
-    };
-    slingshotRef.current.anchorB = {
-      x: dimensions.width * SLING_ANCHOR_B_X_RATIO,
-      y: dimensions.height * SLING_ANCHOR_B_Y_RATIO,
     };
 
     // Animation loop
@@ -272,110 +217,6 @@ export function usePhysicsEngine({
 
       // Update trash can position
       const trashCan = trashCanRef.current;
-
-      // ── Draw slingshot ────────────────────────────────────────────────────
-      const sling = slingshotRef.current;
-      const sA = sling.anchorA;
-      const sB = sling.anchorB;
-      const pull = sling.pullPoint;
-
-      // The tip of the V when avatar is being pulled into the band
-      // When not pulling: band is a straight line A→B (no tip needed)
-      const tip = pull ? { x: Math.min(pull.x, sA.x), y: pull.y } : null;
-
-      // Compute stretch for visual feedback (only when pulling)
-      const stretchDist = tip
-        ? Math.sqrt((tip.x - sA.x) ** 2 + (tip.y - (sA.y + sB.y) / 2) ** 2)
-        : 0;
-      const stretchRatio = Math.min(stretchDist / SLING_MAX_STRETCH, 1);
-
-      // Band color: green → yellow → red as stretch increases
-      const r = Math.round(stretchRatio * 220);
-      const g = Math.round((1 - stretchRatio) * 180 + 60);
-      const bandColor = `rgb(${r},${g},40)`;
-
-      // Draw band
-      const deform = sling.deform;
-      ctx.save();
-      ctx.lineWidth = 3 + stretchRatio * 3;
-      ctx.strokeStyle = bandColor;
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-      ctx.beginPath();
-
-      if (tip) {
-        // Avatar being pulled: V shape — A → pullPoint → B
-        ctx.moveTo(sA.x, sA.y);
-        ctx.lineTo(tip.x, tip.y);
-        ctx.lineTo(sB.x, sB.y);
-      } else if (
-        deform.active &&
-        deform.depth > 0.5 &&
-        sling.activeBubbleId === null
-      ) {
-        // Free-flying bubble pressing into band: show dent
-        const bandTotalY = sB.y - sA.y;
-        const tContact =
-          bandTotalY > 0
-            ? Math.max(0, Math.min(1, (deform.contactY - sA.y) / bandTotalY))
-            : 0.5;
-        const contactX = sA.x + tContact * (sB.x - sA.x);
-        const contactY = sA.y + tContact * (sB.y - sA.y);
-        const dentX = contactX + deform.depth;
-        const dentY = contactY;
-
-        ctx.moveTo(sA.x, sA.y);
-        ctx.quadraticCurveTo(
-          contactX + deform.depth * 0.5,
-          contactY - 15,
-          dentX,
-          dentY,
-        );
-        ctx.quadraticCurveTo(
-          contactX + deform.depth * 0.5,
-          contactY + 15,
-          sB.x,
-          sB.y,
-        );
-      } else {
-        // Default: straight line A → B
-        ctx.moveTo(sA.x, sA.y);
-        ctx.lineTo(sB.x, sB.y);
-      }
-      ctx.stroke();
-
-      // Draw anchor pegs
-      [sA, sB].forEach((anchor, idx) => {
-        const isBeingDragged =
-          (idx === 0 && draggingAnchorRef.current === "A") ||
-          (idx === 1 && draggingAnchorRef.current === "B");
-
-        // Outer glow ring to hint draggability
-        ctx.beginPath();
-        ctx.arc(anchor.x, anchor.y, isBeingDragged ? 11 : 9, 0, Math.PI * 2);
-        ctx.fillStyle = isBeingDragged
-          ? "rgba(255, 200, 80, 0.35)"
-          : "rgba(255, 255, 255, 0.15)";
-        ctx.fill();
-
-        // Peg body
-        ctx.beginPath();
-        ctx.arc(anchor.x, anchor.y, 6, 0, Math.PI * 2);
-        ctx.fillStyle = isBeingDragged ? "#f5a623" : "#8B4513";
-        ctx.fill();
-        ctx.strokeStyle = isBeingDragged ? "#c07000" : "#5C2D0A";
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Center dot
-        ctx.beginPath();
-        ctx.arc(anchor.x, anchor.y, 2, 0, Math.PI * 2);
-        ctx.fillStyle = "rgba(255,255,255,0.6)";
-        ctx.fill();
-      });
-
-      ctx.restore();
-      // ─────────────────────────────────────────────────────────────────────
 
       // Move trash can horizontally
       trashCan.x += trashCan.speed * trashCan.direction;
@@ -601,113 +442,6 @@ export function usePhysicsEngine({
             bubble.vy = -Math.abs(bubble.vy) * 0.8;
             bubble.angularVelocity += bubble.vx * 0.01;
           }
-
-          // ── Slingshot band bounce with elastic deformation ────────────────
-          if (sling.activeBubbleId !== bubble.id) {
-            const bA = sling.anchorA;
-            const bB = sling.anchorB;
-            const deform = sling.deform;
-
-            // Band vector and length
-            const bandDx = bB.x - bA.x;
-            const bandDy = bB.y - bA.y;
-            const bandLen = Math.sqrt(bandDx * bandDx + bandDy * bandDy);
-
-            // Unit normal pointing RIGHT (toward play area)
-            const nx = -bandDy / bandLen;
-            const ny = bandDx / bandLen;
-            const normalX = nx > 0 ? nx : -nx;
-            const normalY = nx > 0 ? ny : -ny;
-
-            // Project bubble onto band segment
-            const toDx = bubble.x - bA.x;
-            const toDy = bubble.y - bA.y;
-            const t = Math.max(
-              0,
-              Math.min(
-                1,
-                (toDx * bandDx + toDy * bandDy) / (bandLen * bandLen),
-              ),
-            );
-            const closestX = bA.x + t * bandDx;
-            const closestY = bA.y + t * bandDy;
-            const distToBand = Math.sqrt(
-              (bubble.x - closestX) ** 2 + (bubble.y - closestY) ** 2,
-            );
-
-            const dot = bubble.vx * normalX + bubble.vy * normalY;
-
-            if (distToBand < bubble.radius && dot < 0) {
-              // ── Start or continue pressing phase ──
-              if (deform.phase === "idle" || deform.bubbleId !== bubble.id) {
-                // New contact: record where on the band the bubble hit
-                deform.active = true;
-                deform.phase = "pressing";
-                deform.contactY = closestY;
-                deform.depth = 0;
-                deform.maxDepth = 0;
-                deform.bubbleId = bubble.id;
-              }
-
-              if (deform.phase === "pressing") {
-                // Accumulate deformation depth proportional to incoming speed
-                const incomingSpeed = Math.abs(dot);
-                deform.depth = Math.min(deform.depth + incomingSpeed * 0.6, 40);
-                deform.maxDepth = Math.max(deform.maxDepth, deform.depth);
-
-                // Hold bubble at band surface while pressing
-                bubble.x = closestX + normalX * bubble.radius;
-                bubble.y = closestY + normalY * bubble.radius;
-                // Absorb velocity into deformation (slow bubble down)
-                bubble.vx *= 0.6;
-                bubble.vy *= 0.6;
-
-                // Transition to rebounding when bubble nearly stops against band
-                const speed = Math.sqrt(bubble.vx ** 2 + bubble.vy ** 2);
-                if (speed < 1.5) {
-                  deform.phase = "rebounding";
-                }
-              }
-            } else if (
-              deform.phase === "rebounding" &&
-              deform.bubbleId === bubble.id
-            ) {
-              // ── Rebound: band snaps back, launching bubble ──
-              const restitution = 0.9; // elastic band returns most energy
-              const launchSpeed = deform.maxDepth * restitution * 0.35;
-
-              // Launch direction = band normal (rightward)
-              bubble.vx = normalX * launchSpeed;
-              bubble.vy = normalY * launchSpeed;
-              bubble.angularVelocity = (normalX - normalY) * 0.05;
-
-              // Reset deformation
-              deform.phase = "idle";
-              deform.active = false;
-              deform.depth = 0;
-              deform.maxDepth = 0;
-              deform.bubbleId = null;
-            } else if (
-              deform.bubbleId === bubble.id &&
-              distToBand >= bubble.radius
-            ) {
-              // Bubble has left the band area — reset if idle
-              if (deform.phase === "pressing") {
-                // Released before full press — small bounce
-                deform.phase = "rebounding";
-              }
-            }
-          }
-
-          // ── Animate band deformation decay (runs every frame) ─────────────
-          if (sling.deform.phase === "idle" && sling.deform.depth > 0) {
-            sling.deform.depth *= 0.85; // spring back
-            if (sling.deform.depth < 0.5) {
-              sling.deform.depth = 0;
-              sling.deform.active = false;
-            }
-          }
-          // ─────────────────────────────────────────────────────────────────
 
           // Check for collision with trash can - using the tapered shape
           // We need to check collision with the trapezoidal shape
@@ -1091,33 +825,14 @@ export function usePhysicsEngine({
     bubblesRef.current = [...bubblesRef.current, newBubble];
   };
 
-  // Start dragging a bubble or an anchor peg
+  // Start dragging a bubble
   const startDrag = (x: number, y: number) => {
     const dividerX = dimensions.width * DIVIDER_X_RATIO;
-    const sling = slingshotRef.current;
-    const ANCHOR_HIT_RADIUS = 14; // px — generous hit area for the peg
 
     // Only allow interactions in the left zone
     if (x > dividerX) return;
 
-    // ── Check anchor pegs first (higher priority than bubbles) ──
-    const distA = Math.sqrt(
-      (x - sling.anchorA.x) ** 2 + (y - sling.anchorA.y) ** 2,
-    );
-    const distB = Math.sqrt(
-      (x - sling.anchorB.x) ** 2 + (y - sling.anchorB.y) ** 2,
-    );
-
-    if (distA <= ANCHOR_HIT_RADIUS) {
-      draggingAnchorRef.current = "A";
-      return;
-    }
-    if (distB <= ANCHOR_HIT_RADIUS) {
-      draggingAnchorRef.current = "B";
-      return;
-    }
-
-    // ── Otherwise find a bubble ──
+    // Find a bubble under the cursor
     for (let i = bubblesRef.current.length - 1; i >= 0; i--) {
       const bubble = bubblesRef.current[i];
       const dx = x - bubble.x;
@@ -1137,28 +852,6 @@ export function usePhysicsEngine({
   // Update dragging position
   const updateDrag = (x: number, y: number) => {
     const dividerX = dimensions.width * DIVIDER_X_RATIO;
-    const sling = slingshotRef.current;
-
-    // ── Anchor peg repositioning ──────────────────────────────────────────
-    if (draggingAnchorRef.current !== null) {
-      // Constrain anchor to left zone only, with margin so bubble can pass
-      const clampedX = Math.max(
-        BUBBLE_RADIUS + 10,
-        Math.min(dividerX - BUBBLE_RADIUS * 2 - 10, x),
-      );
-      const clampedY = Math.max(
-        BUBBLE_RADIUS + 10,
-        Math.min(dimensions.height - BUBBLE_RADIUS - 10, y),
-      );
-
-      if (draggingAnchorRef.current === "A") {
-        sling.anchorA = { x: clampedX, y: clampedY };
-      } else {
-        sling.anchorB = { x: clampedX, y: clampedY };
-      }
-      return;
-    }
-    // ─────────────────────────────────────────────────────────────────────
 
     if (draggedBubbleRef.current === null || !lastMousePosRef.current) return;
 
@@ -1176,41 +869,6 @@ export function usePhysicsEngine({
     if (velocityHistoryRef.current.length > 5)
       velocityHistoryRef.current.shift();
     lastMousePosRef.current = { x, y };
-
-    // ── Slingshot zone detection ──────────────────────────────────────────
-    // The slingshot pocket opens to the LEFT of the anchors.
-    // User drags avatar LEFT past the anchor line to stretch the band.
-    // Releasing fires the avatar to the RIGHT (opposite of stretch direction).
-    const slingMidX = sling.anchorA.x; // anchors share same X
-    const slingMinY =
-      Math.min(sling.anchorA.y, sling.anchorB.y) - BUBBLE_RADIUS;
-    const slingMaxY =
-      Math.max(sling.anchorA.y, sling.anchorB.y) + BUBBLE_RADIUS;
-
-    // Enter slingshot mode when avatar is dragged into the pocket zone
-    // (to the left of anchors and between their Y range)
-    const inSlingshotZone =
-      x <= slingMidX + BUBBLE_RADIUS && y >= slingMinY && y <= slingMaxY;
-
-    if (inSlingshotZone || sling.activeBubbleId === bubble.id) {
-      // Clamp: can't stretch further left than maxStretch, can't go past anchor X to the right
-      const clampedX = Math.max(
-        slingMidX - SLING_MAX_STRETCH,
-        Math.min(slingMidX, x),
-      );
-      const clampedY = Math.max(slingMinY, Math.min(slingMaxY, y));
-
-      sling.activeBubbleId = bubble.id;
-      sling.pullPoint = { x: clampedX, y: clampedY };
-
-      bubble.x = clampedX;
-      bubble.y = clampedY;
-      bubble.vx = 0;
-      bubble.vy = 0;
-      bubblesRef.current[bubbleIndex] = bubble;
-      return;
-    }
-    // ─────────────────────────────────────────────────────────────────────
 
     // When mouse reaches the divider, release the bubble so physics takes over
     if (x >= dividerX - bubble.radius) {
@@ -1252,13 +910,6 @@ export function usePhysicsEngine({
 
   // End dragging and apply velocity
   const endDrag = () => {
-    // ── Release anchor peg ────────────────────────────────────────────────
-    if (draggingAnchorRef.current !== null) {
-      draggingAnchorRef.current = null;
-      return;
-    }
-    // ─────────────────────────────────────────────────────────────────────
-
     if (draggedBubbleRef.current === null) return;
 
     const bubbleIndex = bubblesRef.current.findIndex(
@@ -1270,47 +921,21 @@ export function usePhysicsEngine({
     }
 
     const bubble = bubblesRef.current[bubbleIndex];
-    const sling = slingshotRef.current;
 
-    // ── Slingshot launch ──────────────────────────────────────────────────
-    if (sling.activeBubbleId === bubble.id && sling.pullPoint) {
-      const pull = sling.pullPoint;
-      const anchorMidX = sling.anchorA.x;
-      const anchorMidY = (sling.anchorA.y + sling.anchorB.y) / 2;
-
-      // Stretch vector: from pull point back to anchor midpoint
-      // pull is to the LEFT of anchor → launchDx is POSITIVE (rightward)
-      const launchDx = anchorMidX - pull.x;
-      const launchDy = anchorMidY - pull.y;
-      const stretchDist = Math.sqrt(launchDx * launchDx + launchDy * launchDy);
-
-      if (stretchDist > SLING_MIN_STRETCH) {
-        const speed = Math.min(stretchDist, SLING_MAX_STRETCH) * SLING_POWER;
-        bubble.vx = (launchDx / stretchDist) * speed;
-        bubble.vy = (launchDy / stretchDist) * speed;
-        bubble.angularVelocity = (bubble.vx - bubble.vy) * 0.02;
+    // Apply velocity from drag history
+    if (velocityHistoryRef.current.length > 0) {
+      let vx = 0;
+      let vy = 0;
+      for (const v of velocityHistoryRef.current) {
+        vx += v.x;
+        vy += v.y;
       }
-
-      // Clear slingshot state
-      sling.activeBubbleId = null;
-      sling.pullPoint = null;
-    } else {
-      // Normal throw from velocity history
-      if (velocityHistoryRef.current.length > 0) {
-        let vx = 0;
-        let vy = 0;
-        for (const v of velocityHistoryRef.current) {
-          vx += v.x;
-          vy += v.y;
-        }
-        vx /= velocityHistoryRef.current.length;
-        vy /= velocityHistoryRef.current.length;
-        bubble.vx = vx * 1.5;
-        bubble.vy = vy * 1.5;
-        bubble.angularVelocity = (vx - vy) * 0.01;
-      }
+      vx /= velocityHistoryRef.current.length;
+      vy /= velocityHistoryRef.current.length;
+      bubble.vx = vx * 1.5;
+      bubble.vy = vy * 1.5;
+      bubble.angularVelocity = (vx - vy) * 0.01;
     }
-    // ─────────────────────────────────────────────────────────────────────
 
     bubblesRef.current[bubbleIndex] = bubble;
     draggedBubbleRef.current = null;
@@ -1324,9 +949,6 @@ export function usePhysicsEngine({
     draggedBubbleRef.current = null;
     dragStartPosRef.current = null;
     lastMousePosRef.current = null;
-    draggingAnchorRef.current = null;
-    slingshotRef.current.activeBubbleId = null;
-    slingshotRef.current.pullPoint = null;
   };
 
   return {
