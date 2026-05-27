@@ -2,25 +2,22 @@
 
 import { useState, useEffect } from "react"
 
+const MOBILE_BREAKPOINT = 768
+
 export function useMobile() {
-  const [isMobile, setIsMobile] = useState(false)
+  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined)
 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768) // Adjust breakpoint as needed
-    }
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+    const onChange = () => setIsMobile(mql.matches)
 
     // Set initial value
-    handleResize()
+    setIsMobile(mql.matches)
 
-    // Listen for window resize events
-    window.addEventListener("resize", handleResize)
-
-    // Remove event listener on cleanup
-    return () => {
-      window.removeEventListener("resize", handleResize)
-    }
+    mql.addEventListener("change", onChange)
+    return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return isMobile
+  // Return false during SSR / before hydration to match server render
+  return isMobile ?? false
 }

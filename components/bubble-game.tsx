@@ -2,52 +2,46 @@
 
 import type React from "react";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { usePhysicsEngine } from "@/hooks/use-physics-engine";
-import { useMobile } from "@/hooks/use-mobile";
 import { avatars } from "@/lib/constants";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogTitle,
-  AlertDialogDescription,
-} from "@/components/ui/alert-dialog";
 
 export default function BubbleGame() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useMobile();
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
   const [score, setScore] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [congratsMessage, setCongratsMessage] = useState<string | null>(null);
+  const confettiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { addBubble, startDrag, updateDrag, endDrag, reset } = usePhysicsEngine(
-    {
-      canvasRef,
-      dimensions,
-      onScore: (avatarName) => {
-        setScore((prev) => prev + 1);
-        setShowConfetti(true);
+  const onScore = useCallback((avatarName: string) => {
+    setScore((prev) => prev + 1);
+    setShowConfetti(true);
+    setCongratsMessage(`Bạn đã ném ${avatarName} vào thùng rác!`);
 
-        // Show congratulatory message
-        setCongratsMessage(`Bạn đã ném ${avatarName} vào thùng rác!`);
-
-        // Hide confetti and message after a delay
-        setTimeout(() => {
-          setShowConfetti(false);
-          setCongratsMessage(null);
-        }, 3000);
-
-        // Play sound effect using Web Audio API
-        if (audioEnabled) {
-          playPlopSound();
-        }
-      },
+    // Clear any existing timeout before setting a new one
+    if (confettiTimeoutRef.current) {
+      clearTimeout(confettiTimeoutRef.current);
     }
-  );
+    confettiTimeoutRef.current = setTimeout(() => {
+      setShowConfetti(false);
+      setCongratsMessage(null);
+    }, 3000);
+
+    // Play sound effect using Web Audio API
+    if (audioEnabled) {
+      playPlopSound();
+    }
+  }, [audioEnabled]);
+
+  const { addBubble, startDrag, updateDrag, endDrag, reset } = usePhysicsEngine({
+    canvasRef,
+    dimensions,
+    onScore,
+  });
 
   // Use Web Audio API instead of HTML Audio element
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -117,12 +111,16 @@ export default function BubbleGame() {
       setAudioEnabled(false);
     }
 
-    // Handle resize
+    // Handle resize with debounce to avoid excessive updates
+    let resizeTimer: ReturnType<typeof setTimeout>;
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setDimensions({ width, height });
-      }
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (containerRef.current) {
+          const { width, height } = containerRef.current.getBoundingClientRect();
+          setDimensions({ width, height });
+        }
+      }, 100);
     };
 
     updateDimensions();
@@ -130,6 +128,11 @@ export default function BubbleGame() {
 
     return () => {
       window.removeEventListener("resize", updateDimensions);
+      clearTimeout(resizeTimer);
+      // Clean up confetti timeout
+      if (confettiTimeoutRef.current) {
+        clearTimeout(confettiTimeoutRef.current);
+      }
       // Clean up audio context
       if (
         audioContextRef.current &&
@@ -288,21 +291,33 @@ export default function BubbleGame() {
   );
 }
 
+// Pre-generate confetti particle data to avoid recalculating Math.random() on every render
+const CONFETTI_COUNT = 50;
+const confettiParticles = Array.from({ length: CONFETTI_COUNT }, (_, i) => ({
+  id: i,
+  left: `${Math.random() * 100}%`,
+  width: `${Math.random() * 10 + 5}px`,
+  height: `${Math.random() * 10 + 5}px`,
+  backgroundColor: `hsl(${Math.random() * 360}, 100%, 50%)`,
+  animationDelay: `${Math.random() * 2}s`,
+  animationDuration: `${Math.random() * 3 + 2}s`,
+}));
+
 function Confetti() {
   return (
     <div className="w-full h-full flex items-center justify-center">
       <div className="confetti-container">
-        {Array.from({ length: 50 }).map((_, i) => (
+        {confettiParticles.map((p) => (
           <div
-            key={i}
+            key={p.id}
             className="confetti"
             style={{
-              left: `${Math.random() * 100}%`,
-              width: `${Math.random() * 10 + 5}px`,
-              height: `${Math.random() * 10 + 5}px`,
-              backgroundColor: `hsl(${Math.random() * 360}, 100%, 50%)`,
-              animationDelay: `${Math.random() * 2}s`,
-              animationDuration: `${Math.random() * 3 + 2}s`,
+              left: p.left,
+              width: p.width,
+              height: p.height,
+              backgroundColor: p.backgroundColor,
+              animationDelay: p.animationDelay,
+              animationDuration: p.animationDuration,
             }}
           />
         ))}

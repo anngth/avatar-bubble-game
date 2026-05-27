@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { avatars } from "@/lib/constants";
 
 // Types
@@ -46,8 +46,12 @@ export function usePhysicsEngine({
   dimensions,
   onScore,
 }: PhysicsEngineProps) {
-  const [bubbles, setBubbles] = useState<Bubble[]>([]);
   const bubblesRef = useRef<Bubble[]>([]);
+  // Store onScore in a ref so the animation loop never needs to re-run when the callback changes
+  const onScoreRef = useRef(onScore);
+  useEffect(() => {
+    onScoreRef.current = onScore;
+  }, [onScore]);
   const nextIdRef = useRef(1);
   const animationFrameRef = useRef<number | null>(null);
   const draggedBubbleRef = useRef<number | null>(null);
@@ -235,7 +239,7 @@ export function usePhysicsEngine({
             i--;
 
             // Trigger score callback and trash can jump
-            onScore(avatarName);
+            onScoreRef.current(avatarName);
             trashCanRef.current.jumping = true;
             trashCanRef.current.jumpProgress = 0;
             continue;
@@ -592,7 +596,6 @@ export function usePhysicsEngine({
 
       // Update reference
       bubblesRef.current = updatedBubbles;
-      setBubbles(updatedBubbles);
 
       // Continue animation loop
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -607,7 +610,7 @@ export function usePhysicsEngine({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [dimensions, onScore]);
+  }, [dimensions]);
 
   // Function to draw the trash can directly on the canvas
   const drawTrashCan = (
@@ -710,11 +713,11 @@ export function usePhysicsEngine({
 
   const getColorForAvatar = (name: string): string => {
     const colors: Record<string, string> = {
-      Tèo: "#FF5733",
-      Tí: "#33FF57",
-      Trúc: "#3357FF",
-      "Kỷ An": "#F033FF",
-      Dém: "#FF9933",
+      "Tèo": "#FF5733",
+      "Tí": "#33FF57",
+      "Chúc": "#3357FF",
+      "Dũ": "#F033FF",
+      "Dém": "#FF9933",
     };
     return colors[name] || "#CCCCCC";
   };
@@ -737,7 +740,6 @@ export function usePhysicsEngine({
     };
 
     bubblesRef.current = [...bubblesRef.current, newBubble];
-    setBubbles(bubblesRef.current);
   };
 
   // Start dragging a bubble
@@ -809,7 +811,6 @@ export function usePhysicsEngine({
 
     // Update bubble reference
     bubblesRef.current[bubbleIndex] = bubble;
-    setBubbles([...bubblesRef.current]);
   };
 
   // End dragging and apply velocity
@@ -852,7 +853,6 @@ export function usePhysicsEngine({
 
     // Update bubble reference
     bubblesRef.current[bubbleIndex] = bubble;
-    setBubbles([...bubblesRef.current]);
 
     // Reset drag state
     draggedBubbleRef.current = null;
@@ -863,7 +863,6 @@ export function usePhysicsEngine({
   // Reset the game
   const reset = () => {
     bubblesRef.current = [];
-    setBubbles([]);
     draggedBubbleRef.current = null;
     dragStartPosRef.current = null;
     lastMousePosRef.current = null;
