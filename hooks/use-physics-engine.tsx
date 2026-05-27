@@ -949,6 +949,8 @@ export function usePhysicsEngine({
     draggedBubbleRef.current = null;
     dragStartPosRef.current = null;
     lastMousePosRef.current = null;
+    velocityHistoryRef.current = [];
+    nextIdRef.current = 1;
   };
 
   return {

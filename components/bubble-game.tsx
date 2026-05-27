@@ -17,31 +17,36 @@ export default function BubbleGame() {
   const [congratsMessage, setCongratsMessage] = useState<string | null>(null);
   const confettiTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const onScore = useCallback((avatarName: string) => {
-    setScore((prev) => prev + 1);
-    setShowConfetti(true);
-    setCongratsMessage(`Bạn đã ném ${avatarName} vào thùng rác!`);
+  const onScore = useCallback(
+    (avatarName: string) => {
+      setScore((prev) => prev + 1);
+      setShowConfetti(true);
+      setCongratsMessage(`Bạn đã ném ${avatarName} vào thùng rác!`);
 
-    // Clear any existing timeout before setting a new one
-    if (confettiTimeoutRef.current) {
-      clearTimeout(confettiTimeoutRef.current);
-    }
-    confettiTimeoutRef.current = setTimeout(() => {
-      setShowConfetti(false);
-      setCongratsMessage(null);
-    }, 3000);
+      // Clear any existing timeout before setting a new one
+      if (confettiTimeoutRef.current) {
+        clearTimeout(confettiTimeoutRef.current);
+      }
+      confettiTimeoutRef.current = setTimeout(() => {
+        setShowConfetti(false);
+        setCongratsMessage(null);
+      }, 3000);
 
-    // Play sound effect using Web Audio API
-    if (audioEnabled) {
-      playPlopSound();
-    }
-  }, [audioEnabled]);
+      // Play sound effect using Web Audio API
+      if (audioEnabled) {
+        playPlopSound();
+      }
+    },
+    [audioEnabled],
+  );
 
-  const { addBubble, startDrag, updateDrag, endDrag, reset } = usePhysicsEngine({
-    canvasRef,
-    dimensions,
-    onScore,
-  });
+  const { addBubble, startDrag, updateDrag, endDrag, reset } = usePhysicsEngine(
+    {
+      canvasRef,
+      dimensions,
+      onScore,
+    },
+  );
 
   // Use Web Audio API instead of HTML Audio element
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -117,7 +122,8 @@ export default function BubbleGame() {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => {
         if (containerRef.current) {
-          const { width, height } = containerRef.current.getBoundingClientRect();
+          const { width, height } =
+            containerRef.current.getBoundingClientRect();
           setDimensions({ width, height });
         }
       }, 100);
@@ -222,7 +228,19 @@ export default function BubbleGame() {
             <span>{avatar.name}</span>
           </Button>
         ))}
-        <Button variant="outline" onClick={reset} className="ml-2">
+        <Button
+          variant="outline"
+          onClick={() => {
+            reset();
+            setScore(0);
+            setShowConfetti(false);
+            setCongratsMessage(null);
+            if (confettiTimeoutRef.current) {
+              clearTimeout(confettiTimeoutRef.current);
+            }
+          }}
+          className="ml-2"
+        >
           Reset
         </Button>
         <Button
