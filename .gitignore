@@ -2,13 +2,20 @@
 
 # dependencies
 /node_modules
+.pnpm-store
 
 # next.js
 /.next/
 /out/
+.open-next
 
 # production
 /build
+
+# cloudflare
+.wrangler
+.dev.vars
+.dev.vars.*
 
 # debug
 npm-debug.log*
