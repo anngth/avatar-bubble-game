@@ -43,7 +43,7 @@ An interactive physics-based game where users can play with avatar bubbles in a 
 
 ### Prerequisites
 
-- Node.js 22+
+- Node.js 24+
 - pnpm (recommended) or npm
 
 ### Installation
